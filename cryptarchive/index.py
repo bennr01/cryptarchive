@@ -65,9 +65,10 @@ class Index(object):
         :param path: virtual path to create
         :type path: str
         """
+        path = self.normalize_dir_path(path)
         if self.dir_exists(path):
             return
-        parent = os.path.dirname(path)
+        parent = self.normalize_dir_path(os.path.dirname(os.path.dirname(path)))
         if parent in ("/", "\\", ""):
             parent = "/"
         if (not self.dir_exists(parent)) and (parent is not None):
@@ -75,7 +76,7 @@ class Index(object):
         self._index["dirs"][path] = {}
         if parent is not None:
             self._index["dirs"][parent][path] = {
-                "name": os.path.basename(path),
+                "name": os.path.basename(os.path.dirname(path)),
                 "isdir": True,
                 "id": path,
                 }
@@ -88,8 +89,12 @@ class Index(object):
         :return: wether the path exists or not
         :rtype: boolean
         """
+        path = self.normalize_dir_path(path)
         if path in ("/", "", "\\"):
             return True
+        print "dirs: ", self._index["dirs"]
+        print "path: ", path
+        print "exists: ", (path in self._index["dirs"])
         return (path in self._index["dirs"])
 
     def file_exists(self, path):
@@ -100,7 +105,7 @@ class Index(object):
         :return: wether the path exists or not
         :rtype: boolean
         """
-        parent = os.path.dirname(path)
+        parent = self.normalize_dir_path(os.path.dirname(path))
         fn = os.path.basename(path)
         if fn in self._index["dirs"][parent]:
             return True
@@ -115,6 +120,7 @@ class Index(object):
         :return: [(name, isdir) of each file]
         :rtype: list of tuples of (str, bool)
         """
+        path = self.normalize_dir_path(path)
         if path not in self._index["dirs"]:
             return []
         ret = []
@@ -134,7 +140,7 @@ class Index(object):
         """
         if self.file_exists(path):
             return self.get_file_id(path)
-        parent = os.path.dirname(path)
+        parent = self.normalize_dir_path(os.path.dirname(path))
         if not self.dir_exists(parent):
             self.mkdir(parent)
         fid = self.new_file_id(parent, path)
@@ -154,9 +160,10 @@ class Index(object):
         :rtype: list of str
         """
         removed = []
+        normalized = self.normalize_dir_path(path)
         # if path is a directory, remove all children
-        if path in self._index["dirs"]:
-            for child in self._index["dirs"][path]:
+        if normalized in self._index["dirs"]:
+            for child in self._index["dirs"][normalized]:
                 removed += self.remove_from_index(child)
         # remove all references to path
         for dn in self._index["dirs"]:
@@ -191,7 +198,7 @@ class Index(object):
         :return: the fileid of path
         :rtype: str
         """
-        parent = os.path.dirname(path)
+        parent = self.normalize_dir_path(os.path.dirname(path))
         if parent not in self._index["dirs"]:
             raise FileNotFound("No such directory: '{p}'!".format(p=parent))
         if path not in self._index["dirs"][parent]:
@@ -213,3 +220,31 @@ class Index(object):
             return s.encode(constants.INDEX_ENCODING)
         else:
             raise TypeError("Expected string or unicode, got {t}".format(t=type(s)))
+
+    def normalize_dir_path(self, path):
+        """
+        Return a normalized directory path.
+        Example:
+        /test/   -> /test/
+        /test    -> /test/
+        /test//  -> /test/
+        \\test\\ -> /test/
+
+        :param path: path to normalize
+        :type path: str
+        :return: the normalized path
+        :rtype: str
+        """
+        # 1. ensure final slash
+        path = os.path.join(*os.path.split(path))
+        if not path.endswith(os.sep):  # sep will be converted later
+            path += os.sep
+        # 2. always use '/' as seperator
+        path = path.replace(os.path.sep, "/")
+        # 3. remove multi slashes
+        while "//" in path:
+            path = path.replace("//", "/")
+        # 4.ensure root is "/":
+        if len(path) == 0:
+            path = "/"
+        return path
