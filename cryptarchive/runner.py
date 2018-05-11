@@ -13,8 +13,15 @@ from twisted.python import log
 
 from cryptarchive import constants
 from cryptarchive.challenge import Challenge
-from cryptarchive.client import CryptarchiveClient
+from cryptarchive.client import CryptarchiveTxClient
+from cryptarchive.socketclient import CryptarchiveSocketClient
 from cryptarchive.server import CryptarchiveServerFactory
+
+
+CLIENTS = {
+    "tx": CryptarchiveTxClient,
+    "socket": CryptarchiveSocketClient,
+}
 
 
 class CreateUserPrompt(cmd.Cmd):
@@ -118,30 +125,37 @@ def client_main():
     parser.add_argument("-v", "--verbose", action="store_true", help="be more verbose")
     parser.add_argument("host", action="store", help="host to connect to")
     parser.add_argument("-p", "--port", action="store", type=int, default=constants.DEFAULT_PORT, help="port to connect to")
+    parser.add_argument("--nohash", action="store_false", dest="hash_password", help="Do not hash password")
     parser.add_argument("username", action="store", help="username")
     parser.add_argument("password", action="store", help="password")
     parser.add_argument("action", action="store", choices=["ls", "mkdir", "show-index", "upload", "download", "delete"], help="what to do")
     parser.add_argument("orgpath", action="store", help="path to read from / list / create / ...")
     parser.add_argument("dest", action="store", help="path to write to", nargs="?", default=None)
-    parser.add_argument("--nohash", action="store_false", dest="hash_password", help="Do not hash password")
+    parser.add_argument("-c", "--client", action="store", choices=["tx", "socket"], default="tx")
     ns = parser.parse_args()
 
     if ns.verbose:
         log.startLogging(sys.stdout)
 
-    client = CryptarchiveClient(
+    client_class = CLIENTS[ns.client]
+    client = client_class(
         host=ns.host,
         port=ns.port,
         username=ns.username,
         password=ns.password,
         hash_password=ns.hash_password,
         )
-    task.react(run_client, (client, ns))
+    if ns.client == "tx":
+        task.react(run_tx_client, (client, ns))
+    elif ns.client == "socket":
+        run_socket_client(client, ns)
+    else:
+        raise ValueError("Unexpected value for -c/--client")
 
 
 @inlineCallbacks
-def run_client(reactor, client, ns):
-    """runs the client."""
+def run_tx_client(reactor, client, ns):
+    """runs the twisted client."""
     yield client.retrieve_index()
 
     if ns.action == "ls":
@@ -165,3 +179,30 @@ def run_client(reactor, client, ns):
 
     elif ns.action == "delete":
         yield client.delete(ns.orgpath)
+
+
+def run_socket_client(client, ns):
+    """runs the socket client."""
+    client.retrieve_index()
+
+    if ns.action == "ls":
+        content = client.listdir(ns.orgpath)
+        for fn in content:
+            print fn
+
+    elif ns.action == "mkdir":
+        client.mkdir(ns.orgpath)
+
+    elif ns.action == "show-index":
+        pprint.pprint(client._index._index)
+
+    elif ns.action == "upload":
+        with open(ns.orgpath, "rb") as fin:
+            client.upload(fin, ns.dest)
+
+    elif ns.action == "download":
+        with open(ns.dest, "wb") as fout:
+            client.download(ns.orgpath, fout)
+
+    elif ns.action == "delete":
+        client.delete(ns.orgpath)

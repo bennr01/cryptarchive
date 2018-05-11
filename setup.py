@@ -26,7 +26,8 @@ setup(
         ],
     install_requires=[
         "twisted",
-        "pycryptodome"
+        "pycryptodome",
+        "zope.interface",
         ],
     entry_points={
         "console_scripts": [

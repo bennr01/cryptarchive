@@ -92,9 +92,6 @@ class Index(object):
         path = self.normalize_dir_path(path)
         if path in ("/", "", "\\"):
             return True
-        print "dirs: ", self._index["dirs"]
-        print "path: ", path
-        print "exists: ", (path in self._index["dirs"])
         return (path in self._index["dirs"])
 
     def file_exists(self, path):

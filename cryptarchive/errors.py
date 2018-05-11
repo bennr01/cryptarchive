@@ -11,3 +11,7 @@ class VersionError(Exception):
 class FileNotFound(Exception):
     """Exception raised when a file was not found."""
     pass
+
+class ProtocolError(Exception):
+    """Exception raised when a protocol violation occured."""
+    pass

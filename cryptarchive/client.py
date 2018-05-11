@@ -1,9 +1,11 @@
-"""cryptarchive client."""
+"""cryptarchive twisted client."""
 import hashlib
 import StringIO
 
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
+
+from zope.interface import implementer
 
 from twisted.internet import reactor, endpoints, threads
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
@@ -13,6 +15,7 @@ from cryptarchive import constants
 from cryptarchive.challenge import Challenge
 from cryptarchive.errors import AuthenticationError, VersionError, FileNotFound
 from cryptarchive.index import Index
+from cryptarchive.icryptarchive import ICryptarchiveClient
 
 
 class CryptarchiveClientProtocol(IntNStringReceiver):
@@ -260,7 +263,8 @@ class CryptarchiveClientProtocol(IntNStringReceiver):
             self._d.errback(AuthenticationError("Authentication failed!"))
 
 
-class CryptarchiveClient(object):
+@implementer(ICryptarchiveClient)
+class CryptarchiveTxClient(object):
     """The client for the cryptoarchive."""
     def __init__(self, host, username, password, port=constants.DEFAULT_PORT, hash_password=True):
         self._username = username
