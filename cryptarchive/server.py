@@ -1,14 +1,12 @@
 """cryptarchive server"""
-import hashlib
-
 from twisted.internet import threads
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import IntNStringReceiver
-from twisted.python.filepath import FilePath
 
 from cryptarchive.challenge import Challenge
 from cryptarchive import constants
+from cryptarchive.usermanager import UserManager
 
 
 
@@ -57,7 +55,7 @@ class CryptarchiveServerProtocol(IntNStringReceiver):
 
         elif self.state == self.STATE_WAIT_USERNAME:
             # username received
-            self.userid = self.factory.get_userid(s)
+            self.userid = self.factory.usermanager.get_userid(s)
             # send challenge
             self.challenge = yield self.factory.get_challenge(self.userid)
             ser = self.challenge.dumps()
@@ -78,7 +76,7 @@ class CryptarchiveServerProtocol(IntNStringReceiver):
             action, data = s[0], s[1:]
 
             if action == constants.ACTION_GET:
-                p = self.factory.get_file_path(self.userid, data)
+                p = self.factory.usermanager.get_file_path(self.userid, data)
                 if not p.exists():
                     self.sendString("E")
                 else:
@@ -89,12 +87,12 @@ class CryptarchiveServerProtocol(IntNStringReceiver):
                 self.transport.loseConnection()
 
             elif action == constants.ACTION_SET:
-                p = self.factory.get_file_path(self.userid, data)
+                p = self.factory.usermanager.get_file_path(self.userid, data)
                 self.cur_f = p.open("wb")
                 self.state = self.STATE_WRITING
 
             elif action == constants.ACTION_DELETE:
-                p = self.factory.get_file_path(self.userid, data)
+                p = self.factory.usermanager.get_file_path(self.userid, data)
                 if not p.exists:
                     res = constants.RESPONSE_ERROR + "File not found!"
                 else:
@@ -151,10 +149,7 @@ class CryptarchiveServerFactory(Factory):
     protocol = CryptarchiveServerProtocol
 
     def __init__(self, path):
-        if isinstance(path, FilePath):
-            self.path = path
-        else:
-            self.path = FilePath(path)
+        self.usermanager = UserManager(path)
 
     def buildProtocol(self, addr):
         """build a protocol for the communication with the client"""
@@ -162,95 +157,17 @@ class CryptarchiveServerFactory(Factory):
         p.factory = self
         return p
 
-    def get_userid(self, username):
-        """
-        Return the userid for the username.
-        :param username: the username of the user
-        :type username: str
-        :return: the userid of the user
-        :rtype: str
-        """
-        return "u_" + hashlib.sha256(username).hexdigest()
-
-
-    def get_user_path(self, userid):
-        """
-        Return the path of the user.
-        :param userid: the id of the user
-        :type userid: str
-        :return: the path of the user
-        :rtype: FilePath
-        """
-        return self.path.child(userid)
-
-    def user_exists(self, userid):
-        """
-        Check if the user exist.
-        :param userid: the userid of the user
-        :type userid: str
-        :return: whether the user exists or not
-        :rtype: bool
-        """
-        return self.get_user_path(userid).exists()
-
-    def user_is_setup(self, userid):
-        """
-        Check if the user account is setup.
-        :param userid: the userid of the user
-        :type userid: str
-        :return: whether the user has been setup or not
-        :rtype: bool
-        """
-        up = self.get_user_path(userid)
-        abe = up.child("authblock.bin").exists()
-        hfe = up.child("hash.bin").exists()
-        return (abe and hfe)
-
     @inlineCallbacks
     def get_challenge(self, userid):
         """returns a challenge for the user."""
-        if self.user_exists(userid):
-            authblockpath = self.get_authblock_path(userid)
-            hash_path = self.get_hash_path(userid)
+        if self.usermanager.user_exists(userid):
+            authblockpath = self.usermanager.get_authblock_path(userid)
+            hash_path = self.usermanager.get_hash_path(userid)
             authblock = yield self.load_file_in_thread(authblockpath)
             expected_hash = yield self.load_file_in_thread(hash_path)
             returnValue(Challenge.generate_challenge(authblock, expected_hash))
         else:
             returnValue(Challenge.generate_unsolvable_challenge())
-
-    def get_file_path(self, userid, filename):
-        """
-        Return the path of the file of the user.
-        :param userid: userid of the user
-        :type userid: str
-        :param filename: name of the file
-        :type filename: str
-        :return: the path of the file.
-        :rtype: FilePath
-        """
-        up = self.get_user_path(userid)
-        fp = up.child(filename)
-        return fp
-
-    def get_authblock_path(self, userid):
-        """
-        Return the path of the authblock file of the user.
-        :param userid: userid of the user
-        :type userid: str
-        :return: the path of the authblock file.
-        :rtype: FilePath
-        """
-        return self.get_file_path(userid, "authblock.bin")
-
-    def get_hash_path(self, userid):
-        """
-        Return the path of the hash file of the user.
-        :param userid: userid of the user
-        :type userid: str
-        :return: the path of the hash file.
-        :rtype: FilePath
-        """
-        return self.get_file_path(userid, "hash.bin")
 
     def load_file_in_thread(self, path):
         """

@@ -159,8 +159,8 @@ class Index(object):
         removed = []
         normalized = self.normalize_dir_path(path)
         # if path is a directory, remove all children
-        if normalized in self._index["dirs"]:
-            for child in self._index["dirs"][normalized]:
+        if normalized in list(self._index["dirs"]):
+            for child in list(self._index["dirs"][normalized]):
                 removed += self.remove_from_index(child)
         # remove all references to path
         for dn in self._index["dirs"]:
@@ -244,4 +244,7 @@ class Index(object):
         # 4.ensure root is "/":
         if len(path) == 0:
             path = "/"
+        # 5. ensure start slash
+        if not path.startswith("/"):
+            path = "/" + path
         return path

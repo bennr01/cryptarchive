@@ -16,6 +16,7 @@ from cryptarchive.challenge import Challenge
 from cryptarchive.client import CryptarchiveTxClient
 from cryptarchive.socketclient import CryptarchiveSocketClient
 from cryptarchive.server import CryptarchiveServerFactory
+from cryptarchive.usermanager import UserManager
 
 
 CLIENTS = {
@@ -27,9 +28,9 @@ CLIENTS = {
 class CreateUserPrompt(cmd.Cmd):
     """REPL-loop for creating users."""
 
-    def __init__(self, factory, ns):
+    def __init__(self, usermanager, ns):
         cmd.Cmd.__init__(self)
-        self.factory = factory
+        self.usermanager = usermanager
         self.ns = ns
         self.prompt = "[{p}]".format(p=os.path.abspath(ns.path))
         self.intro = "Cryptarchive [Python version: {pyv}; protocol version {comv}]\nType 'help' for help.".format(
@@ -43,11 +44,6 @@ class CreateUserPrompt(cmd.Cmd):
 
     do_exit = do_q = do_quit
 
-    def do_stop(self, cmd):
-        """stop the server."""
-        reactor.stop()
-        return True
-
     def do_list_userids(self, cmd):
         """lists  the userids."""
         users = os.listdir(self.ns.path)
@@ -56,13 +52,13 @@ class CreateUserPrompt(cmd.Cmd):
 
     def do_get_userid(self, cmd):
         """calculate the userid for the username."""
-        uid = self.factory.get_userid(cmd)
+        uid = self.usermanager.get_userid(cmd)
         self.stdout.write(uid + "\n")
 
     def do_remove_user_by_name(self, cmd):
         """remove the user with the username"""
-        userid = self.factory.get_userid(cmd)
-        p = self.factory.get_user_path(userid)
+        userid = self.usermanager.get_userid(cmd)
+        p = self.usermanager.get_user_path(userid)
         if p.exists():
             p.remove()
         else:
@@ -70,7 +66,7 @@ class CreateUserPrompt(cmd.Cmd):
 
     def do_remove_user_by_userid(self, cmd):
         """remove the user with the userid"""
-        p = self.factory.get_user_path(cmd)
+        p = self.usermanager.get_user_path(cmd)
         if p.exists():
             p.remove()
         else:
@@ -78,16 +74,16 @@ class CreateUserPrompt(cmd.Cmd):
 
     def do_create_user(self, cmd):
         """create a new user."""
-        userid = self.factory.get_userid(cmd)
-        if self.factory.user_exists(userid):
+        userid = self.usermanager.get_userid(cmd)
+        if self.usermanager.user_exists(userid):
             self.stdout.write("Error: user already exists!\n")
             return
-        userpath = self.factory.get_user_path(userid)
+        userpath = self.usermanager.get_user_path(userid)
         password = getpass.getpass("Password for '{un}': ".format(un=cmd))
         authblock, hash = Challenge.generate_authblock_and_hash(password, hash_password=True)
         userpath.makedirs()
-        self.factory.get_authblock_path(userid).setContent(authblock)
-        self.factory.get_hash_path(userid).setContent(hash)
+        self.usermanager.get_authblock_path(userid).setContent(authblock)
+        self.usermanager.get_hash_path(userid).setContent(hash)
 
 
 def server_main():
@@ -104,17 +100,19 @@ def server_main():
         print "No such file or directory: '{p}'".format(p=ns.path)
         sys.exit(2)
 
+    if ns.manage_users:
+        usermanager = UserManager(ns.path)
+        cmdo = CreateUserPrompt(usermanager, ns)
+        cmdo.prompt = cmdo.prompt.format(p=ns.path)
+        cmdo.cmdloop()
+        sys.exit(0)
+
     if ns.verbose:
         log.startLogging(sys.stdout)
 
     factory = CryptarchiveServerFactory(ns.path)
     ep = TCP4ServerEndpoint(reactor, port=ns.port, interface=ns.interface)
     ep.listen(factory)
-
-    if ns.manage_users:
-        cmdo = CreateUserPrompt(factory, ns)
-        cmdo.prompt = cmdo.prompt.format(p=ns.path)
-        reactor.callInThread(cmdo.cmdloop)
 
     reactor.run()
 
