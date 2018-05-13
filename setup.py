@@ -5,13 +5,13 @@ from setuptools import setup
 
 setup(
     name="cryptarchive",
-    version="0.0.1",
+    version="0.1.0",
     author="bennr01",
     author_email="benjamin99.vogt@web.de",
     description="encrypted storage server and client",
     long_description=open("README.md").read(),
     license="AGPLv3",
-    keywords="interface interfaces utilities plugin plugins",
+    keywords="crypto server data storage network CLI",
     url="https://github.com/bennr01/cryptarchive/",
     classifiers=[
         "License :: OSI Approved :: GNU Affero General Public License v3",
