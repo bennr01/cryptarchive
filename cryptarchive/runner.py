@@ -86,6 +86,34 @@ class CreateUserPrompt(cmd.Cmd):
         self.usermanager.get_hash_path(userid).setContent(hash)
 
 
+def scan_dir_for_upload(path, remotebase):
+    """
+    Scans a directory for uploading a directory.
+    :param path: path to scan
+    :type path: str
+    :param remotebase: path to which should be uploaded.
+    :tyype remotebase: str
+    :return: A tuple ([directories to create], [(sourcefile, targetfile)])
+    :rtype: tuple of (list of str, list of tuples of (str, str))
+    """
+    dirs_to_create = []
+    files_to_upload = []
+    for fn in os.listdir(path):
+        fp = os.path.join(path, fn)
+        rp = os.path.join(remotebase, fn)
+        if os.path.isdir(fp):
+            dirs_to_create.append(rp)
+            sd, sf = scan_dir_for_upload(fp, rp)
+            dirs_to_create += sd
+            files_to_upload += sf
+        elif os.path.isfile(fp):
+            files_to_upload.append((fp, rp))
+        else:
+            raise NotImplementedError("Can not handle: {p}".format(p=fp))
+    return (dirs_to_create, files_to_upload)
+
+
+
 def server_main():
     """entry point for the server"""
     parser = argparse.ArgumentParser(description="The Cryptarchive Server")
@@ -168,8 +196,20 @@ def run_tx_client(reactor, client, ns):
         pprint.pprint(client._index._index)
 
     elif ns.action == "upload":
-        with open(ns.orgpath, "rb") as fin:
-            yield client.upload(fin, ns.dest)
+
+        if os.path.isdir(ns.orgpath):
+            dtc, ftu = scan_dir_for_upload(ns.orgpath, ns.dest)
+        else:
+            dtc = []
+            ftu = [(ns.orgpath, ns.dest)]
+
+        for dn in dtc:
+            yield client.mkdir(dn)
+
+        for lp, rp in ftu:
+            with open(lp, "rb") as fin:
+                print("Uploading '{o}' as '{d}'...".format(o=lp, d=rp))
+                yield client.upload(fin, rp)
 
     elif ns.action == "download":
         with open(ns.dest, "wb") as fout:
@@ -195,8 +235,19 @@ def run_socket_client(client, ns):
         pprint.pprint(client._index._index)
 
     elif ns.action == "upload":
-        with open(ns.orgpath, "rb") as fin:
-            client.upload(fin, ns.dest)
+        if os.path.isdir(ns.orgpath):
+            dtc, ftu = scan_dir_for_upload(ns.orgpath, ns.dest)
+        else:
+            dtc = []
+            ftu = [(ns.orgpath, ns.dest)]
+
+        for dn in dtc:
+            client.mkdir(dn)
+
+        for lp, rp in ftu:
+            with open(lp, "rb") as fin:
+                print("Uploading '{o}' as '{d}'...".format(o=lp, d=rp))
+                client.upload(fin, rp)
 
     elif ns.action == "download":
         with open(ns.dest, "wb") as fout:

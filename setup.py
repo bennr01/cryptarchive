@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name="cryptarchive",
-    version="0.1.2",
+    version="0.1.3",
     author="bennr01",
     author_email="benjamin99.vogt@web.de",
     description="encrypted storage server and client",
