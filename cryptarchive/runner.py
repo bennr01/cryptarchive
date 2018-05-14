@@ -138,7 +138,7 @@ def server_main():
     if ns.verbose:
         log.startLogging(sys.stdout)
 
-    factory = CryptarchiveServerFactory(ns.path)
+    factory = CryptarchiveServerFactory(ns.path, verbose=ns.verbose)
     ep = TCP4ServerEndpoint(reactor, port=ns.port, interface=ns.interface)
     ep.listen(factory)
 

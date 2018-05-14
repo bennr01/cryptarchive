@@ -139,6 +139,12 @@ class CryptarchiveServerProtocol(IntNStringReceiver):
                 break
             self.sendString(data)
 
+    def lengthLimitExceeded(self, length):
+        """called when the length limit is exceeded."""
+        if self.factory.verbose:
+            print "WARNING: Message length exceeds self.MAX_LENGTH: " + str(length)
+        self.transport.loseConnection()
+
 
 class CryptarchiveServerFactory(Factory):
     """
@@ -148,7 +154,8 @@ class CryptarchiveServerFactory(Factory):
     """
     protocol = CryptarchiveServerProtocol
 
-    def __init__(self, path):
+    def __init__(self, path, verbose=False):
+        self.verbose = verbose
         self.usermanager = UserManager(path)
 
     def buildProtocol(self, addr):
