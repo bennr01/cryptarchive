@@ -103,7 +103,10 @@ class Index(object):
         :rtype: boolean
         """
         parent = self.normalize_dir_path(os.path.dirname(path))
+        path = self.normalize_file_path(path)
         fn = os.path.basename(path)
+        if parent not in self._index["dirs"]:
+            return False
         if fn in self._index["dirs"][parent]:
             return True
         else:
@@ -135,6 +138,7 @@ class Index(object):
         :return: the new file id
         :rtype: str
         """
+        path = self.normalize_file_path(path)
         if self.file_exists(path):
             return self.get_file_id(path)
         parent = self.normalize_dir_path(os.path.dirname(path))
@@ -184,6 +188,7 @@ class Index(object):
         :return: the generated file id
         :rtype: str
         """
+        parentdir = self.normalize_dir_path(parentdir)
         fid = hashlib.sha256(parentdir + name).hexdigest()
         return fid
 
@@ -196,6 +201,7 @@ class Index(object):
         :rtype: str
         """
         parent = self.normalize_dir_path(os.path.dirname(path))
+        path = self.normalize_file_path(path)
         if parent not in self._index["dirs"]:
             raise FileNotFound("No such directory: '{p}'!".format(p=parent))
         if path not in self._index["dirs"][parent]:
@@ -225,6 +231,7 @@ class Index(object):
         /test/   -> /test/
         /test    -> /test/
         /test//  -> /test/
+        test/    -> /test/
         \\test\\ -> /test/
 
         :param path: path to normalize
@@ -245,6 +252,30 @@ class Index(object):
         if len(path) == 0:
             path = "/"
         # 5. ensure start slash
+        if not path.startswith("/"):
+            path = "/" + path
+        return path
+
+    def normalize_file_path(self, path):
+        """
+        Return a normalized file path.
+        Example:
+        /test/file.txt   -> /test/file.txt
+        /test//file.txt  -> /test/file.txt
+        test/file.txt    -> /test/file.txt
+        \\test\\file.txt -> /test/file.txt
+
+        :param path: path to normalize
+        :type path: str
+        :return: the normalized path
+        :rtype: str
+        """
+        # 1. always use '/' as seperator
+        path = path.replace(os.path.sep, "/")
+        # 2. remove multi slashes
+        while "//" in path:
+            path = path.replace("//", "/")
+        # 3. ensure start slash
         if not path.startswith("/"):
             path = "/" + path
         return path
