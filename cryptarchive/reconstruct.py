@@ -90,7 +90,7 @@ def reconstruct(s, filelist=[], verbose=False):
             print "Error: {e}\nBeginning recovery...".format(e=repr(e))
     else:
         if verbose:
-            print "Done.\nThe index appears to be working, skipping reconstruction.",
+            print "Done.\nThe index appears to be working, skipping reconstruction."
         return index
 
     # find ids
@@ -113,7 +113,7 @@ def reconstruct(s, filelist=[], verbose=False):
 
     # reconstruct path list
     if verbose:
-        print "Searching for hints of paths... "
+        print "Searching for hints of paths... ",
     paths = reconstruct_pathlist(keys)
     if verbose:
         print "{n} found.".format(n=len(paths))
