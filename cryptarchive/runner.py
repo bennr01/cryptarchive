@@ -5,6 +5,7 @@ import argparse
 import cmd
 import getpass
 import pprint
+import hashlib
 
 from twisted.internet import reactor, task
 from twisted.internet.endpoints import TCP4ServerEndpoint
