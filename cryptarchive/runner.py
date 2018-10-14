@@ -329,8 +329,20 @@ def run_socket_client(client, ns):
                 client.upload(fin, rp)
 
     elif ns.action == "download":
-        with open(ns.dest, "wb") as fout:
-            client.download(ns.orgpath, fout)
+        if client._index.dir_exists(ns.orgpath):
+            dtc, ftu = scan_dir_for_download(client._index, ns.orgpath, ns.dest)
+        else:
+            dtc = []
+            ftu = [(ns.orgpath, ns.dest)]
+
+        for dn in dtc:
+            if not os.path.exists(dn):
+                os.mkdir(dn)
+
+        for rp, lp in ftu:
+            with open(lp, "wb") as fout:
+                print("Downloading '{r}' as '{l}'...".format(r=rp, l=lp))
+                client.download(rp, fout)
 
     elif ns.action == "download-raw":
         with open(ns.dest, "wb") as fout:
