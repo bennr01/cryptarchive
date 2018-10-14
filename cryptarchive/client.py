@@ -365,11 +365,19 @@ class CryptarchiveTxClient(object):
 
     @inlineCallbacks
     def delete(self, path):
-        """delete a file:"""
+        """delete a file."""
         if self._index is None:
             raise RuntimeError("Index not yet retrieved!")
         removed = self._index.remove_from_index(path)
         for fid in removed:
             conn = yield self.new_connection()
             yield conn.delete_file(fid)
+        yield self.save_index()
+
+    @inlineCallbacks
+    def move(self, src, dest):
+        """move src to dest."""
+        if self._index is None:
+            raise RuntimeError("Index not yet retrieved!")
+        self._index.move(src, dest)
         yield self.save_index()

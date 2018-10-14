@@ -104,7 +104,7 @@ class Index(object):
         """
         parent = self.normalize_dir_path(os.path.dirname(path))
         path = self.normalize_file_path(path)
-        fn = os.path.basename(path)
+        fn = path  # os.path.basename(path)
         if parent not in self._index["dirs"]:
             return False
         if fn in self._index["dirs"][parent]:
@@ -279,3 +279,27 @@ class Index(object):
         if not path.startswith("/"):
             path = "/" + path
         return path
+
+    def move(self, src, dest):
+        """
+        Move src to dest.
+        :param src: the source path
+        :type src: str
+        :param dest: the destination path
+        :type dest: str
+        """
+        src = self.normalize_file_path(src)
+        if not (self.dir_exists(src) or self.file_exists(src)):
+            raise FileNotFound("No such file or directory: '{p}'!".format(p=src))
+        dest = self.normalize_file_path(dest)
+        srcparent = self.normalize_dir_path(os.path.dirname(src))
+        destparent = self.normalize_dir_path(os.path.dirname(dest))
+        if not self.dir_exists(destparent):
+            self.mkdir(destparent)
+        olddata = self._index["dirs"][srcparent][src]
+        self._index["dirs"][destparent][dest] = {
+            "name": os.path.basename(dest),
+            "isdir": olddata["isdir"],
+            "id": olddata["id"],
+            }
+        self.remove_from_index(src)

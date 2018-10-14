@@ -182,7 +182,7 @@ def client_main():
     parser.add_argument("--nohash", action="store_false", dest="hash_password", help="Do not hash password")
     parser.add_argument("username", action="store", help="username")
     parser.add_argument("password", action="store", help="password")
-    parser.add_argument("action", action="store", choices=["ls", "mkdir", "show-index", "upload", "download", "delete", "download-raw"], help="what to do")
+    parser.add_argument("action", action="store", choices=["ls", "mkdir", "show-index", "upload", "download", "delete", "download-raw", "mv"], help="what to do")
     parser.add_argument("orgpath", action="store", help="path to read from / list / create / ...")
     parser.add_argument("dest", action="store", help="path to write to", nargs="?", default=None)
     parser.add_argument("-c", "--client", action="store", choices=["tx", "socket"], default="tx")
@@ -251,6 +251,9 @@ def run_tx_client(reactor, client, ns):
     elif ns.action == "delete":
         yield client.delete(ns.orgpath)
 
+    elif ns.action == "mv":
+        yield client.move(ns.orgpath, ns.dest)
+
 
 def run_socket_client(client, ns):
     """runs the socket client."""
@@ -293,3 +296,6 @@ def run_socket_client(client, ns):
 
     elif ns.action == "delete":
         client.delete(ns.orgpath)
+
+    elif ns.action == "mv":
+        client.move(ns.orgpath, ns.dest)

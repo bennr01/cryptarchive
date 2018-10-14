@@ -53,3 +53,7 @@ class ICryptarchiveClient(Interface):
     def delete(self, path):
         """delete a file and save the index."""
         pass
+
+    def move(self, src, dest):
+        """move the path src to dest."""
+        pass

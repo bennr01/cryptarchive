@@ -308,3 +308,10 @@ class CryptarchiveSocketClient(object):
             conn = self.new_connection()
             conn.delete_file(fid)
         self.save_index()
+
+    def move(self, src, dest):
+        """move src to dest."""
+        if self._index is None:
+            raise RuntimeError("Index not yet retrieved!")
+        self._index.move(src, dest)
+        self.save_index()
