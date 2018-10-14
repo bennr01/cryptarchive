@@ -166,13 +166,15 @@ class CryptarchiveClientProtocol(IntNStringReceiver):
         return cipher
 
 
-    def get_file(self, path, write_cb):
+    def get_file(self, path, write_cb, raw=False):
         """
         Receive the file specified by path.
         :param path: the virtual path to receive
         :type path: str
         :param write_cb: callable which will be called with any received data
         :type write_cb: callable.
+        :param raw: do not decrypt file content.
+        :type raw: bool
         :return: a deferred which will be called once the file has been received.
         :rtype: Deferred
         """
@@ -183,7 +185,10 @@ class CryptarchiveClientProtocol(IntNStringReceiver):
         self._used = True
         self._end_d = Deferred()
         self._write_cb = write_cb
-        self._cipher = self._get_cipher()
+        if raw:
+            self._cipher = None
+        else:
+            self._cipher = self._get_cipher()
         self._state = self.STATE_WAIT_GET_RESPONSE
         self.sendString(constants.ACTION_GET + path)
         return self._end_d
@@ -351,6 +356,12 @@ class CryptarchiveTxClient(object):
         fid = self._index.get_file_id(path)
         conn = yield self.new_connection()
         yield conn.get_file(fid, f.write)
+
+    @inlineCallbacks
+    def download_raw(self, path, f):
+        """download a file without looking up the filename or decrypting it."""
+        conn = yield self.new_connection()
+        yield conn.get_file(path, f.write, raw=True)
 
     @inlineCallbacks
     def delete(self, path):

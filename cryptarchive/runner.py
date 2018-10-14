@@ -14,9 +14,10 @@ from twisted.python import log
 from cryptarchive import constants
 from cryptarchive.challenge import Challenge
 from cryptarchive.client import CryptarchiveTxClient
-from cryptarchive.socketclient import CryptarchiveSocketClient
+from cryptarchive.socketclient import CryptarchiveSocketClient, CryptarchiveSocketConnection
 from cryptarchive.server import CryptarchiveServerFactory
 from cryptarchive.usermanager import UserManager
+from cryptarchive.reconstruct import reconstruct
 
 
 CLIENTS = {
@@ -84,6 +85,28 @@ class CreateUserPrompt(cmd.Cmd):
         userpath.makedirs()
         self.usermanager.get_authblock_path(userid).setContent(authblock)
         self.usermanager.get_hash_path(userid).setContent(hash)
+
+    def do_reconstruct_index(self, cmd):
+        """attemp reconstruct the index of the user with the userid."""
+        p = self.usermanager.get_user_path(cmd)
+        if not p.exists():
+            self.stdout.write("Error: No such user!\n")
+            return
+
+        # decrypt old index
+        enc_old_index = p.child(constants.INDEX_FILE_NAME).getContent()
+        password = getpass.getpass("Password for '{un}': ".format(un=cmd))
+        hp = hashlib.sha256(password).digest()
+        conn = CryptarchiveSocketConnection("", "", hp)
+        cipher = conn._get_cipher()
+        old_index = cipher.decrypt(enc_old_index)
+
+        filelist = p.listdir()
+        for fn in (constants.INDEX_FILE_NAME, "hash.bin", "authblock.bin"):
+            if fn in filelist:
+                filelist.remove(fn)
+        index = reconstruct(old_index, filelist, verbose=True)
+        p.child(constants.INDEX_FILE_NAME).setContent(index.dumps())
 
 
 def scan_dir_for_upload(path, remotebase):
@@ -154,7 +177,7 @@ def client_main():
     parser.add_argument("--nohash", action="store_false", dest="hash_password", help="Do not hash password")
     parser.add_argument("username", action="store", help="username")
     parser.add_argument("password", action="store", help="password")
-    parser.add_argument("action", action="store", choices=["ls", "mkdir", "show-index", "upload", "download", "delete"], help="what to do")
+    parser.add_argument("action", action="store", choices=["ls", "mkdir", "show-index", "upload", "download", "delete", "download-raw"], help="what to do")
     parser.add_argument("orgpath", action="store", help="path to read from / list / create / ...")
     parser.add_argument("dest", action="store", help="path to write to", nargs="?", default=None)
     parser.add_argument("-c", "--client", action="store", choices=["tx", "socket"], default="tx")
@@ -182,7 +205,8 @@ def client_main():
 @inlineCallbacks
 def run_tx_client(reactor, client, ns):
     """runs the twisted client."""
-    yield client.retrieve_index()
+    if ns.action != "download-raw":
+        yield client.retrieve_index()
 
     if ns.action == "ls":
         content = yield client.listdir(ns.orgpath)
@@ -215,13 +239,18 @@ def run_tx_client(reactor, client, ns):
         with open(ns.dest, "wb") as fout:
             yield client.download(ns.orgpath, fout)
 
+    elif ns.action == "download-raw":
+        with open(ns.dest, "wb") as fout:
+            yield client.download_raw(ns.orgpath, fout)
+
     elif ns.action == "delete":
         yield client.delete(ns.orgpath)
 
 
 def run_socket_client(client, ns):
     """runs the socket client."""
-    client.retrieve_index()
+    if ns.action != "download-raw":
+        client.retrieve_index()
 
     if ns.action == "ls":
         content = client.listdir(ns.orgpath)
@@ -252,6 +281,10 @@ def run_socket_client(client, ns):
     elif ns.action == "download":
         with open(ns.dest, "wb") as fout:
             client.download(ns.orgpath, fout)
+
+    elif ns.action == "download-raw":
+        with open(ns.dest, "wb") as fout:
+            client.download_raw(ns.orgpath, fout)
 
     elif ns.action == "delete":
         client.delete(ns.orgpath)

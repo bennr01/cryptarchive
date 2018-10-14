@@ -138,13 +138,15 @@ class CryptarchiveSocketConnection(object):
         cipher = AES.new(self._password, AES.MODE_CTR, counter=Counter.new(128))
         return cipher
 
-    def get_file(self, path, write_cb):
+    def get_file(self, path, write_cb, raw=False):
         """
         Receive the file specified by path.
         :param path: the virtual path to receive
         :type path: str
         :param write_cb: callable which will be called with any received data
         :type write_cb: callable.
+        :param raw: do not decrypt file
+        :type raw: bool
         """
         if self._s is None:
             raise RuntimeError("Not connected!")
@@ -152,7 +154,10 @@ class CryptarchiveSocketConnection(object):
         response = self._recv()
         if response == "O":
             # everyting ok
-            cipher = self._get_cipher()
+            if not raw:
+                cipher = self._get_cipher()
+            else:
+                cipher = None
             receiving = True
             while receiving:
                 data = self._recv()
@@ -160,7 +165,10 @@ class CryptarchiveSocketConnection(object):
                     receiving = False
                     self.close()
                 else:
-                    dec = cipher.decrypt(data)
+                    if cipher is not None:
+                        dec = cipher.decrypt(data)
+                    else:
+                        dec = data
                     write_cb(dec)
 
         elif response == "E":
@@ -285,6 +293,11 @@ class CryptarchiveSocketClient(object):
         fid = self._index.get_file_id(path)
         conn = self.new_connection()
         conn.get_file(fid, f.write)
+
+    def download_raw(self, path, f):
+        """download a file without looking the path up or decrypting it."""
+        conn = self.new_connection()
+        conn.get_file(path, f.write, raw=True)
 
     def delete(self, path):
         """delete a file:"""
