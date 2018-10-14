@@ -162,7 +162,7 @@ def reconstruct(s, filelist=[], verbose=False):
     if verbose:
         print "Done."
         print "Data loss summary below:"
-        filenameloss = ((len(filelist)-len(skipped)) / (len(filelist) + len(added)))* 100
+        filenameloss = (float(len(filelist)-len(skipped)) / (len(filelist) + len(added)))* 100
         print "filenames: {p}% lost.".format(p=(filenameloss))
     return index
 
