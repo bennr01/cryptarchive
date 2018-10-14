@@ -47,7 +47,6 @@ def get_entry_for_id(s, id):
     try:
         loaded = json.loads(m)
     except:
-        print m
         return None
     else:
         return (key, loaded)
@@ -105,7 +104,10 @@ def reconstruct(s, filelist=[], verbose=False):
         print "Reading index entries for IDs... ",
     entries, keys = [], []
     for id in ids:
-        key, entry = get_entry_for_id(s, id)
+        v = get_entry_for_id(s, id)
+        if v is None:
+            continue
+        key, entry = v
         keys.append(key)
         entries.append(entry)
     if verbose:

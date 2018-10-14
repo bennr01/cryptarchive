@@ -120,7 +120,7 @@ def scan_dir_for_upload(path, remotebase):
     :param path: path to scan
     :type path: str
     :param remotebase: path to which should be uploaded.
-    :tyype remotebase: str
+    :type remotebase: str
     :return: A tuple ([directories to create], [(sourcefile, targetfile)])
     :rtype: tuple of (list of str, list of tuples of (str, str))
     """
@@ -139,6 +139,35 @@ def scan_dir_for_upload(path, remotebase):
         else:
             raise NotImplementedError("Can not handle: {p}".format(p=fp))
     return (dirs_to_create, files_to_upload)
+
+
+def scan_dir_for_download(index, remotepath, base):
+    """
+    Scans a directory for uploading a directory.
+    :param index: index to scan
+    :type index: str
+    :param remotepath: path to scan
+    :type remotepath: str
+    :param base: path to which should be downloaded.
+    :type base: str
+    :return: A tuple ([directories to create], [(sourcefile, targetfile)])
+    :rtype: tuple of (list of str, list of tuples of (str, str))
+    """
+    dirs_to_create = []
+    files_to_download = []
+    for fn, isdir in index.listdir(remotepath):
+        while fn.startswith("/"):
+            fn = fn[1:]
+        rp = os.path.join(remotepath, fn)
+        fp = os.path.join(base, fn)
+        if isdir:
+            dirs_to_create.append(fp)
+            sd, sf = scan_dir_for_download(index, rp, fp)
+            dirs_to_create += sd
+            files_to_download += sf
+        else:
+            files_to_download.append((rp, fp))
+    return (dirs_to_create, files_to_download)
 
 
 
@@ -241,12 +270,25 @@ def run_tx_client(reactor, client, ns):
                 yield client.upload(fin, rp)
 
     elif ns.action == "download":
-        with open(ns.dest, "wb") as fout:
-            yield client.download(ns.orgpath, fout)
+        if client._index.dir_exists(ns.orgpath):
+            dtc, ftu = scan_dir_for_download(client._index, ns.orgpath, ns.dest)
+        else:
+            dtc = []
+            ftu = [(ns.orgpath, ns.dest)]
+
+        for dn in dtc:
+            if not os.path.exists(dn):
+                os.mkdir(dn)
+
+        for rp, lp in ftu:
+            with open(lp, "wb") as fout:
+                print("Downloading '{r}' as '{l}'...".format(r=rp, l=lp))
+                yield client.download(rp, fout)
 
     elif ns.action == "download-raw":
         with open(ns.dest, "wb") as fout:
             yield client.download_raw(ns.orgpath, fout)
+
 
     elif ns.action == "delete":
         yield client.delete(ns.orgpath)
