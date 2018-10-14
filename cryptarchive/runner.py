@@ -107,7 +107,11 @@ class CreateUserPrompt(cmd.Cmd):
             if fn in filelist:
                 filelist.remove(fn)
         index = reconstruct(old_index, filelist, verbose=True)
-        p.child(constants.INDEX_FILE_NAME).setContent(index.dumps())
+
+        # encrypt new index
+        cipher = conn._get_cipher()
+        enc_index = cipher.encrypt(index.dumps())
+        p.child(constants.INDEX_FILE_NAME).setContent(enc_index)
 
 
 def scan_dir_for_upload(path, remotebase):
